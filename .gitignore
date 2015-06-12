@@ -1,0 +1,9 @@
+*.swp
+*.swo
+#*
+*~
+.nfs*
+*.md
+*.html
+figure-*/
+cache-*/
