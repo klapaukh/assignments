@@ -133,10 +133,14 @@ assignmentCompletion <- reactive( {results %>%
 
           output$missedAss <- renderPlot({
 results %>% 
-  group_by(ID) %>% 
-  summarise(Skipped = sum(Mark == 0),
+  group_by(ID) %>%
+   summarise(Skipped = sum(Mark == 0),
+            poor  = sum(Mark <= poor()),
+            failed = sum(Mark < pass()),
+            completed = sum(Mark >= pass()),
             passed = unique(Final %in% passGrade))%>%
-  ggplot(aes(x=factor(Skipped),fill=passed)) + geom_bar(position="dodge") + xlab("Number of assignments skipped")
+   melt(id.vars=c("ID","passed"),value.name="num",variable.name="attempt") %>% 
+  ggplot(aes(x=num,y=..density..,fill=attempt)) + geom_bar(position="dodge",binwidth=1) + facet_wrap(~passed) + scale_x_continuous(breaks=0:10)
           })
             
             })
