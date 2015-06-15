@@ -32,9 +32,9 @@ if(is.null(results)){
 }
 
 #Remove any unusual grades
-pass = c("A+","A","A-","B+","B","B-","C+","C","C-")
-fail = c("D","E")
-results %<>% filter(Final %in% c(pass,fail))
+passGrade = c("A+","A","A-","B+","B","B-","C+","C","C-")
+failGrade = c("D","E")
+results %<>% filter(Final %in% c(passGrade,failGrade))
 
 
 #Melt the assignments, and make any NAs 0 (for consistency between courses and
@@ -76,7 +76,10 @@ shinyApp(ui =        pageWithSidebar(headerPanel("Assignment Monitoring"),
                             textOutput("percentAttempts", inline=TRUE),
                             "% of students submitted all of their assignments."
                               ),
-                   tabPanel("Total Attempt Effect"
+                   tabPanel("Total Attempt Effect",
+                        h2("Group assignment effects"),
+                        p("Your chance of passing based on number of assignment submitted"),
+                        plotOutput("missedAss")
                            ),
                    tabPanel("Individual Assignment Effect"
                            )
@@ -125,24 +128,20 @@ assignmentCompletion <- reactive( {results %>%
           })
 
           output$attemptSummary <- renderDataTable({
-
                  assignmentCompletion() %>% select(-total)
+          })
 
+          output$missedAss <- renderPlot({
+results %>% 
+  group_by(ID) %>% 
+  summarise(Skipped = sum(Mark == 0),
+            passed = unique(Final %in% passGrade))%>%
+  ggplot(aes(x=factor(Skipped),fill=passed)) + geom_bar(position="dodge") + xlab("Number of assignments skipped")
           })
             
             })
 
 
-#
-#```{r fig.cap="Passing the course based on number of missed assignments"}
-#results %>% 
-#  group_by(ID) %>% 
-#  summarise(Skipped = sum(Mark == 0),
-#            passed = unique(Final %in% pass))%>%
-#  ggplot(aes(x=factor(Skipped),fill=passed)) + geom_bar(position="dodge") + xlab("Number of assignments skipped")
-#```
-#
-#
 #We can then have a look at how the number of skipped assignments affects your 
 #probability of passing.
 #
