@@ -1,6 +1,5 @@
 #!/usr/bin/env Rscript
 
-
 library(magrittr)
 library(dplyr)
 library(ggplot2)
@@ -63,11 +62,10 @@ generalSidebar = sidebarPanel(h3("Settings and summary"),
       dataTableOutput("attemptSummary")      
                               )
 
-shinyApp(ui =         navbarPage("Assignment Effect Explorer", 
-                   id="navigation",
+shinyApp(ui =        pageWithSidebar(headerPanel("Assignment Monitoring"),
+  generalSidebar, mainPanel(
+  tabsetPanel(
                    tabPanel("Basic Data",
-                       sidebarLayout(generalSidebar,
-                                     mainPanel(
                             h2("Student attempts at assignments"), 
                             p("The following plot shows the number of students that did each assignment to each level of completion. The levels are as follows:"),
                             HTML("<ul><li>zeros: 0 mark</li><li>poor: <= the poor grade</li><li>failed: < the pass grade </li><li>completed: acheived the pass grade or better</li></ul>"),
@@ -77,13 +75,12 @@ shinyApp(ui =         navbarPage("Assignment Effect Explorer",
                             "Overall ",
                             textOutput("percentAttempts", inline=TRUE),
                             "% of students submitted all of their assignments."
-                              )
-                                     )),
+                              ),
                    tabPanel("Total Attempt Effect"
                            ),
                    tabPanel("Individual Assignment Effect"
                            )
-                   ),
+                   ))),
 server = function(input,output,session){
 
         poor <- reactive({input$poorVal})
