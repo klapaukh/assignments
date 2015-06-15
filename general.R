@@ -54,31 +54,54 @@ results$Mark[is.na(results$Mark)] = 0
 #   * passed: these are all the students who passes the assessment
 #   * total: The total number of students in the course
 
-assignmentCompletion = results %>%
-  group_by(Assignment) %>%
-  summarise(zeros = sum(Mark == 0),
-            poor  = sum(Mark <= 4),
-            failed = sum(Mark < 8),
-            completed = sum(Mark >= 8),
-            total = n())
 
+
+generalSidebar = sidebarPanel(h3("Settings and summary"),
+      sliderInput("poorVal", "Poor cut off", min=0, max=args$max, value=args$poor, step=1),                      
+      sliderInput("passVal", "Pass mark", min=0, max=args$max, value=args$pass, step=1),
+      p("Summary data"),
+      dataTableOutput("attemptSummary")      
+                              )
 
 shinyApp(ui =         navbarPage("Assignment Effect Explorer", 
                    id="navigation",
                    tabPanel("Basic Data",
+                       sidebarLayout(generalSidebar,
+                                     mainPanel(
                             h2("Student attempts at assignments"), 
                             p("The following plot shows the number of students that did each assignment to each level of completion. The levels are as follows:"),
                             HTML("<ul><li>zeros: 0 mark</li><li>poor: <= the poor grade</li><li>failed: < the pass grade </li><li>completed: acheived the pass grade or better</li></ul>"),
                             plotOutput("nAttempts"),
                             p("We can also look at the number of students who attempted each assignment"),
-                            plotOutput("nAssign")
-                              ),
-                   tabPanel("Total Attempt Effect"),
-                   tabPanel("Individual Assignment Effect")
+                            plotOutput("nAssign"),
+                            "Overall ",
+                            textOutput("percentAttempts", inline=TRUE),
+                            "% of students submitted all of their assignments."
+                              )
+                                     )),
+                   tabPanel("Total Attempt Effect"
+                           ),
+                   tabPanel("Individual Assignment Effect"
+                           )
                    ),
 server = function(input,output,session){
+
+        poor <- reactive({input$poorVal})
+        pass <- reactive({input$passVal})
+
+assignmentCompletion <- reactive( {results %>%
+  group_by(Assignment) %>%
+  summarise(zeros = sum(Mark == 0),
+            poor  = sum(Mark <= poor()),
+            failed = sum(Mark < pass()),
+            completed = sum(Mark >= pass()),
+            total = n())
+                   })
+
+
+
            output$nAttempts <- renderPlot({
-              assignmentCompletion %>%
+              assignmentCompletion() %>%
                 melt(id.vars=c("Assignment","total"),
                      variable.name="Result",value.name="NumStudents") %>%
                 ggplot(aes(Assignment,NumStudents,colour=Result,group=Result,shape=Result)) + geom_point() + 
@@ -90,6 +113,24 @@ server = function(input,output,session){
               group_by(ID) %>% 
               summarise(Skipped = sum(Mark == 0))%>%
               ggplot(aes(x=factor(Skipped))) + geom_bar() + xlab("Number of assignments skipped") + ylab("Number of Students")
+          })
+
+          output$percentAttempts <- renderText({
+            results %>% 
+              group_by(ID) %>% 
+              summarise(Skipped = sum(Mark == 0))%>%
+              group_by(Skipped) %>%
+              summarise(students = n()) %>% 
+              mutate(percent = 100 * students / sum(students)) %>%
+              filter(Skipped == 0) %>% 
+              extract2("percent") %>%
+              round(1)
+          })
+
+          output$attemptSummary <- renderDataTable({
+
+                 assignmentCompletion() %>% select(-total)
+
           })
             
             })
