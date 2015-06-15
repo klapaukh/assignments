@@ -140,7 +140,20 @@ results %>%
             completed = sum(Mark >= pass()),
             passed = unique(Final %in% passGrade))%>%
    melt(id.vars=c("ID","passed"),value.name="num",variable.name="attempt") %>% 
-  ggplot(aes(x=num,y=..density..,fill=attempt)) + geom_bar(position="dodge",binwidth=1) + facet_wrap(~passed) + scale_x_continuous(breaks=0:10)
+   group_by(attempt,num) %>%
+   summarise(total = n(),
+             nPassed = sum(passed == T),
+             nFailed = sum(passed == F)) %>%
+   rowwise() %>%
+   mutate( percentPass = nPassed / total,
+           bestimate   = binom.test(nPassed, total,conf.level=0.8) %>% extract2("estimate"),
+           bconfLower  = binom.test(nPassed, total,conf.level=0.8) %>% extract2("conf.int") %>% head(1),
+           bconfUpper  = binom.test(nPassed, total,conf.level=0.8) %>% extract2("conf.int") %>% as.numeric %>% last) %>%
+  ggplot(aes(x=num,y=bestimate,colour=attempt,fill=attempt,ymin=bconfLower,ymax=bconfUpper)) + 
+  geom_point() + geom_line() + 
+  geom_ribbon(alpha=0.5) + 
+  scale_x_continuous(breaks=0:10) + xlab("Number of Assignments") +
+  ylab("Probability of passing") + facet_wrap(~attempt)
           })
             
             })
