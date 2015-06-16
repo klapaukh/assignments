@@ -202,10 +202,10 @@ results %>%
                 group_by(ID) %>%
                   summarise(
                             passed = head(Final %in% passGrade,1),
-                            skipped = Assignment[min(which(Mark == 0))],
-                            poor    = Assignment[min(which(Mark <= poor() ))],
-                            failed  = Assignment[min(which(Mark <  pass() ))],
-                            completed  = Assignment[min(which(Mark >=  pass() ))]
+                            skipped = ifelse(any(Mark == 0), Assignment[min(which(Mark == 0))], as.integer(NA)),
+                            poor    = ifelse(any(Mark <= poor()), Assignment[min(which(Mark <= poor() ))], as.integer(NA)),
+                            failed  = ifelse(any(Mark < pass()), Assignment[min(which(Mark <  pass() ))], as.integer(NA)),
+                            completed  = ifelse(any(Mark >= pass()), Assignment[min(which(Mark >=  pass() ))], as.integer(NA))
                             ) %>% 
                 melt(id.vars=c("ID","passed"), value.name="assignment", variable.name="attempt") %>%
                 filter(!is.na(assignment)) %>%
@@ -229,51 +229,6 @@ results %>%
                         
                 })
 
-        output$testTable <- renderDataTable({ firstMissData() })
+#        output$testTable <- renderDataTable({ firstMissData() })
 
             })
-
-
-
-#Skipping any specific assignment does seem to matter. How about which is your
-#fisrt assignment to skip.
-#
-#```{r fig.cap="Success based on first assignment skipped"}
-#results %>% 
-#  group_by(ID) %>%
-#  summarise( firstSkipped = gsub("A","",Assignment[min(which(Mark == 0))]) %>%
-#            as.integer,
-#             passed = unique(Final %in% pass)) %>%
-#  group_by(firstSkipped) %>%
-#  summarise( pPass = sum(passed) / length(passed),
-#             students = n()) %>%
-#  filter(!is.na(firstSkipped)) %>%
-#  ggplot(aes(firstSkipped, pPass,colour=students,label=students)) + geom_point(size=10) + geom_line(colour="black") + scale_x_continuous(breaks=0:10) + geom_text(aes(y=pPass+0.05),colour="black")
-#```
-#
-#This is about skipping assignments, lets try look at failing instead. 
-#
-#
-#```{r fig.cap="Probability of passing the course given failing a specific assignment"}
-#results %>% 
-#  group_by(Assignment) %>%
-#  summarise(skipped = sum(Mark <8),
-#            pPass   = sum(Mark < 8 & Final %in% pass)/ sum(Mark <8)
-#            ) %>%
-#  ggplot(aes(Assignment,pPass,group=factor(1),label=skipped)) + geom_point() + geom_line()  +
-#  xlab("Failing assignment X") + geom_text(aes(y=pPass+0.01))
-#```
-#
-#```{r fig.cap="Success based on first assignment failed"}
-#results %>% 
-#  group_by(ID) %>%
-#  summarise( firstSkipped = gsub("A","",Assignment[min(which(Mark < 8))]) %>%
-#            as.integer,
-#             passed = unique(Final %in% pass)) %>%
-#  group_by(firstSkipped) %>%
-#  summarise( pPass = sum(passed) / length(passed),
-#             students = n()) %>%
-#  filter(!is.na(firstSkipped)) %>%
-#  ggplot(aes(firstSkipped, pPass,colour=students,label=students)) + geom_point(size=10) + geom_line(colour="black") + scale_x_continuous(breaks=0:10) + geom_text(aes(y=pPass+0.05),colour="black") + xlab("First assignment failed")
-#```
-#
