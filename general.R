@@ -67,8 +67,7 @@ generalSidebar = sidebarPanel(h3("Settings and summary"),
       sliderInput("poorVal", "Poor cut off", min=0, max=args$max, value=args$poor, step=1),                      
       sliderInput("passVal", "Pass mark", min=0, max=args$max, value=args$pass, step=1),
       p("Summary data"),
-      dataTableOutput("attemptSummary"),
-      div(id='hidden', dataTableOutput("testTable"))
+      dataTableOutput("attemptSummary")
                               )
 
 shinyApp(ui =        fluidPage(includeCSS("style.css"),
@@ -175,6 +174,7 @@ results %>%
 results %>% 
  rowwise() %>%
  mutate(passed = Final %in% passGrade) %>% 
+ ungroup %>%
   group_by(Assignment, passed) %>%
    summarise(Skipped = sum(Mark == 0),
             poor  = sum(Mark <= poor()),
@@ -228,7 +228,5 @@ results %>%
                         ylab("Probability of passing") 
                         
                 })
-
-#        output$testTable <- renderDataTable({ firstMissData() })
 
             })
