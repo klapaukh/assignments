@@ -10,10 +10,11 @@ library(argparser)
 
 
 p = arg.parser("A R application for examining the effect of assignments on the pass rate of the course") %>%
-  add.argument("--input", help="input file")  %>%
-  add.argument("--max", default=20, help="maximum mark") %>%
-  add.argument("--poor", default=4, help="highest mark that is a poor effort") %>%
-  add.argument("--pass", default=8, help="lowest mark that is a pass") 
+  add.argument("--aregex", default="^[aA][0-9]*$", help="Regex to match assignment columns") %>%
+  add.argument("--input",                          help="input file")  %>%
+  add.argument("--max",    default=20,             help="maximum mark") %>%
+  add.argument("--pass",   default=8, help="lowest mark that is a pass") %>%
+  add.argument("--poor",   default=4, help="highest mark that is a poor effort") 
 
 args = parse.args(p, commandArgs())
 
@@ -39,9 +40,16 @@ results %<>% filter(Final %in% c(passGrade,failGrade))
 
 #Melt the assignments, and make any NAs 0 (for consistency between courses and
 #data sets)
-results %<>% melt(measure.var=paste0("A",1:10),value.name="Mark",variable.name="Assignment")
+assignmentColumnNames = results %>% colnames %>% grep(args$aregex,.,value=T)
+results %<>% melt(measure.var=assignmentColumnNames,value.name="Mark",variable.name="Assignment")
 results$Mark[is.na(results$Mark)] = 0
 
+
+if(any(results$Mark > args$max)) {
+  cat(sprintf("Found marks greater than the expected max (%d) -- automatically adjusting max.\n", max(results$Mark)))
+  cat("Please restart the system with the correct value.\n")
+  args$max = max(results$Mark)
+}
 
 #We want to know, for each assignment how many students actually did them. 
 #We look at three categories. Assignments are marked  
@@ -59,10 +67,12 @@ generalSidebar = sidebarPanel(h3("Settings and summary"),
       sliderInput("poorVal", "Poor cut off", min=0, max=args$max, value=args$poor, step=1),                      
       sliderInput("passVal", "Pass mark", min=0, max=args$max, value=args$pass, step=1),
       p("Summary data"),
-      dataTableOutput("attemptSummary")      
+      dataTableOutput("attemptSummary"),
+      div(id='hidden', dataTableOutput("testTable"))
                               )
 
-shinyApp(ui =        pageWithSidebar(headerPanel("Assignment Monitoring"),
+shinyApp(ui =        fluidPage(includeCSS("style.css"),
+                               titlePanel("Assignment Monitoring"),sidebarLayout(
   generalSidebar, mainPanel(
   tabsetPanel(
                    tabPanel("Basic Data",
@@ -81,9 +91,14 @@ shinyApp(ui =        pageWithSidebar(headerPanel("Assignment Monitoring"),
                         p("Your chance of passing based on number of assignment submitted"),
                         plotOutput("missedAss")
                            ),
-                   tabPanel("Individual Assignment Effect"
+                   tabPanel("Individual Assignment Effect",
+                            h2("Specific assignment effects"),
+                            p("Your chance of passing based on your performance at a specific assignment"),
+                            plotOutput("specificMissChance"),
+                            p("In contrast we can look at it based on the first assignment skipped"),
+                            plotOutput("firstMissChance")
                            )
-                   ))),
+                   )))),
 server = function(input,output,session){
 
         poor <- reactive({input$poorVal})
@@ -154,67 +169,72 @@ results %>%
   scale_x_continuous(breaks=0:10) + xlab("Number of Assignments") +
   ylab("Probability of passing") + facet_wrap(~attempt)
           })
-            
+           
+
+                output$specificMissChance <- renderPlot({
+results %>% 
+ rowwise() %>%
+ mutate(passed = Final %in% passGrade) %>% 
+  group_by(Assignment, passed) %>%
+   summarise(Skipped = sum(Mark == 0),
+            poor  = sum(Mark <= poor()),
+            failed = sum(Mark < pass()),
+            completed = sum(Mark >= pass())
+            ) %>% 
+   melt(id.vars=c("Assignment","passed"),value.name="num",variable.name="attempt") %>% 
+   group_by(Assignment,attempt) %>% 
+   summarise( total = sum(num),
+              nPassed = sum(num[passed==TRUE]),
+              nFailed = sum(num[passed==F])
+              ) %>%
+   ungroup %>%
+   mutate( pPass = nPassed / total) %>%
+   ggplot(aes(Assignment,pPass,colour=attempt,group=attempt,label=total)) + 
+   geom_point() + geom_line() + geom_text(aes(y=pPass-0.1),colour="black") + 
+   facet_wrap(~attempt) + xlab("Attempt at specific assignment") + 
+   ylab("Probability of passing the course")
+                })
+
+
+
+          firstMissData <- reactive({
+          results %>% 
+                group_by(ID) %>%
+                  summarise(
+                            passed = head(Final %in% passGrade,1),
+                            skipped = Assignment[min(which(Mark == 0))],
+                            poor    = Assignment[min(which(Mark <= poor() ))],
+                            failed  = Assignment[min(which(Mark <  pass() ))],
+                            completed  = Assignment[min(which(Mark >=  pass() ))]
+                            ) %>% 
+                melt(id.vars=c("ID","passed"), value.name="assignment", variable.name="attempt") %>%
+                filter(!is.na(assignment)) %>%
+                group_by(attempt,assignment) %>%
+                summarise(
+                          total = n(),
+                          nPassed = sum(passed==T)
+                          ) %>%
+                mutate(pPass = nPassed / total,
+                       assignmentNum = gsub("[^0-9]*","",assignment) %>% as.integer)  
+
+          })
+
+        output$firstMissChance <- renderPlot({
+                ggplot(firstMissData(), 
+                       aes(x=factor(assignment),y=pPass,colour=attempt,label=total,group=attempt)) + 
+                        geom_point() + geom_line() + 
+                        geom_text(aes(y=pPass-0.1),colour="black") + 
+                        facet_wrap(~attempt) + xlab("First assignment to be ...") +
+                        ylab("Probability of passing") 
+                        
+                })
+
+        output$testTable <- renderDataTable({ firstMissData() })
+
             })
 
 
-#We can then have a look at how the number of skipped assignments affects your 
-#probability of passing.
-#
-#```{r fig.cap="Probability of passing based on assignment attempts"}
-#personalCompletion = results %>% 
-#  group_by(ID) %>% 
-#  summarise(skipped = sum(Mark == 0),
-#            poor  = sum(Mark <= 4),
-#            failed = sum(Mark < 8),
-#            completed = sum(Mark >= 8),
-#            passedCourse = unique(Final %in% pass)) 
-#
-#personalCompletion %>% 
-#  group_by(skipped) %>% 
-#  summarise( pPass = sum(passedCourse) / length(passedCourse),students=n()) %>%
-#  ggplot(aes(skipped,pPass,label=students)) + geom_point() + geom_line() + 
-#        scale_x_continuous(breaks=0:10) + geom_text(aes(y=pPass+0.05))
-#  
-#
-#personalCompletion %>% 
-#  group_by(poor) %>% 
-#  summarise( pPass = sum(passedCourse) / length(passedCourse),students=n()) %>%
-#  ggplot(aes(poor,pPass,label=students)) + geom_point() + geom_line() + 
-#        scale_x_continuous(breaks=0:10) + geom_text(aes(y=pPass+0.05))
-#
-#
-#personalCompletion %>% 
-#  group_by(failed) %>% 
-#  summarise( pPass = sum(passedCourse) / length(passedCourse),students=n()) %>%
-#  ggplot(aes(failed,pPass,label=students)) + geom_point() + geom_line() + 
-#        scale_x_continuous(breaks=0:10) + geom_text(aes(y=pPass+0.05))
-#
-#
-#personalCompletion %>% 
-#  group_by(completed) %>% 
-#  summarise( pPass = sum(passedCourse) / length(passedCourse),students=n()) %>%
-#  ggplot(aes(completed,pPass,label=students)) + geom_point() + geom_line() +
-#         scale_x_continuous(breaks=0:10) + geom_text(aes(y=pPass+0.05))
-#
-#```
-#
-#This suggests that the number of assignments missed or done poorly is an indication that
-#the student is at risk of failure. 
-#
-#
-#Lets have a look at the effect of specific assignments.
-#
-#```{r fig.cap="Probability of passing the course given skipping a specific assignment"}
-#results %>% 
-#  group_by(Assignment) %>%
-#  summarise(skipped = sum(Mark == 0),
-#            pPass   = sum(Mark == 0 & Final %in% pass)/ sum(Mark == 0)
-#           ) %>%
-#  ggplot(aes(Assignment,pPass,group=factor(1),label=skipped)) + geom_point() + geom_line() + geom_text(aes(y=pPass+0.01))
-#
-#```
-#
+
 #Skipping any specific assignment does seem to matter. How about which is your
 #fisrt assignment to skip.
 #
