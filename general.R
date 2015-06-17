@@ -64,8 +64,8 @@ if(any(results$Mark > args$max)) {
 
 
 generalSidebar = sidebarPanel(h3("Settings and summary"),
-      sliderInput("poorVal", "Poor cut off", min=0, max=args$max, value=args$poor, step=1),                      
-      sliderInput("passVal", "Pass mark", min=0, max=args$max, value=args$pass, step=1),
+      sliderInput("poorVal", "Poor cut off", min=1, max=args$max, value=args$poor, step=1),                      
+      sliderInput("passVal", "Pass mark", min=1, max=args$max, value=args$pass, step=1),
       p("Summary data"),
       dataTableOutput("attemptSummary")
                               )
