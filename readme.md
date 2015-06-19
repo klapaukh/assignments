@@ -1,7 +1,8 @@
 #Assignment Attempt Explorer
 
 This tool seeks to help people look at what assignment non-submission may say 
-about a students subsequent likelihood of passing a course. 
+about a students subsequent likelihood of passing a course. If you use this
+system in research please cite it.
 
 ## Invocation
 
