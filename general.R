@@ -26,14 +26,14 @@ library(shiny)
 library(argparser)
 
 
-p = arg.parser("A R application for examining the effect of assignments on the pass rate of the course") %>%
-  add.argument("--aregex", default="^[aA][0-9]*$", help="Regex to match assignment columns") %>%
-  add.argument("--input",                          help="input file")  %>%
-  add.argument("--max",    default=20,             help="maximum mark") %>%
-  add.argument("--pass",   default=8, help="lowest mark that is a pass") %>%
-  add.argument("--poor",   default=4, help="highest mark that is a poor effort") 
+p = arg_parser("A R application for examining the effect of assignments on the pass rate of the course") %>%
+  add_argument("--aregex", default="^[aA][0-9]*$", help="Regex to match assignment columns") %>%
+  add_argument("--input",                          help="input file")  %>%
+  add_argument("--max",    default=20,             help="maximum mark") %>%
+  add_argument("--pass",   default=8, help="lowest mark that is a pass") %>%
+  add_argument("--poor",   default=4, help="highest mark that is a poor effort") 
 
-args = parse.args(p, commandArgs())
+args = parse_args(p, commandArgs(trailingOnly = TRUE))
 
 if(is.na(args$input) | args$help){
   print(p)
