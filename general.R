@@ -124,7 +124,11 @@ shinyApp(ui =        fluidPage(includeCSS("style.css"),
                             p("Your chance of passing based on your performance at a specific assignment"),
                             plotOutput("specificMissChance"),
                             p("In contrast we can look at it based on the first assignment skipped"),
-                            plotOutput("firstMissChance")
+                            plotOutput("firstMissChance"),
+                            p("Your chance of passing based on your performance at a specific assignment by grade"),
+                            plotOutput("specificMissChanceByGrade"),
+                            p("In contrast we can look at it based on the first assignment skipped by grade"),
+                            plotOutput("firstMissChanceByGrade")
                            )
                    )))),
 server = function(input,output,session){
@@ -269,6 +273,44 @@ output$firstMissChance <- renderPlot({
   geom_text(aes(y=pPass-0.1),colour="black") + 
   facet_wrap(~attempt) + xlab("First assignment to be ...") +
   ylab("Probability of passing") 
+
+})
+
+output$specificMissChanceByGrade <- renderPlot({
+  results %>% 
+  mutate(final = unique(toPlainGrade(as.character(Final)))) %>% 
+  group_by(Assignment, final) %>%
+  summarise(Skipped = sum(Mark == 0),
+    poor  = sum(Mark <= poor() & Mark > 0),
+    failed = sum(Mark < pass() & Mark > poor()),
+    completed = sum(Mark >= pass())    
+    ) %>% 
+  melt(id.vars=c("Assignment","final"),value.name="num",variable.name="attempt") %>% 
+  ggplot(aes(Assignment,num,colour=attempt,shape=attempt,group=attempt)) + 
+  geom_point() + geom_line() + 
+  facet_grid(final~attempt) + xlab("Attempt at specific assignment") + 
+  ylab("Number of students")
+})
+
+
+output$firstMissChanceByGrade <- renderPlot({
+  results %>% 
+  group_by(ID) %>%
+  summarise(
+    final = unique(toPlainGrade(as.character(Final))),
+    skipped = ifelse(any(Mark == 0), Assignment[min(which(Mark == 0))], as.integer(NA)),
+    poor    = ifelse(any(Mark <= poor() & Mark > 0), Assignment[min(which(Mark <= poor() ))], as.integer(NA)),
+    failed  = ifelse(any(Mark < pass() & Mark > poor()), Assignment[min(which(Mark <  pass() ))], as.integer(NA)),
+    completed  = ifelse(any(Mark >= pass()), Assignment[min(which(Mark >=  pass() ))], as.integer(NA))
+    ) %>% 
+  melt(id.vars=c("ID","final"), value.name="assignment", variable.name="attempt") %>%
+  filter(!is.na(assignment)) %>%
+  group_by(final,attempt,assignment) %>%
+  summarise(total = n()) %>%
+  ggplot(aes(x=assignment,y=total,colour=attempt,shape=attempt,group=attempt)) + 
+  geom_point() + geom_line() + 
+  facet_grid(final~attempt) + xlab("First assignment to be ...") +
+  ylab("Number of students") 
 
 })
 
