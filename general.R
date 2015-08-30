@@ -91,9 +91,9 @@ shinyApp(ui =        fluidPage(includeCSS("style.css"),
                                titlePanel("Assignment Monitoring"),sidebarLayout(
   generalSidebar, mainPanel(
   tabsetPanel(
-                   tabPanel("Basic Data",
+                   tabPanel("Assignment Attempts",
                             h2("Student attempts at assignments"), 
-                            p("The following plot shows the number of students that did each assignment to each level of completion. The levels are as follows:"),
+                            p("The following plot shows the number of students that did each assignment to each level of completion. Note that each student belongs only to a single level. The levels are as follows:"),
                             HTML("<ul><li>zeros: 0 mark</li><li>poor: <= the poor grade</li><li>failed: < the pass grade </li><li>completed: acheived the pass grade or better</li></ul>"),
                             plotOutput("nAttempts"),
                             p("We can also look at the number of students who attempted each assignment"),
@@ -123,8 +123,8 @@ server = function(input,output,session){
   assignmentCompletion <- reactive( {results %>%
     group_by(Assignment) %>%
     summarise(zeros = sum(Mark == 0),
-      poor  = sum(Mark <= poor()),
-      failed = sum(Mark < pass()),
+      poor  = sum(Mark <= poor() & Mark > 0),
+      failed = sum(Mark < pass() & Mark > poor()),
       completed = sum(Mark >= pass()),
       total = n())
   })
@@ -166,8 +166,8 @@ server = function(input,output,session){
     results %>% 
     group_by(ID) %>%
     summarise(Skipped = sum(Mark == 0),
-      poor  = sum(Mark <= poor()),
-      failed = sum(Mark < pass()),
+      poor  = sum(Mark <= poor() & Mark > 0),
+      failed = sum(Mark < pass() & Mark > poor()),
       completed = sum(Mark >= pass()),
       passed = unique(Final %in% passGrade))%>%
     melt(id.vars=c("ID","passed"),value.name="num",variable.name="attempt") %>% 
@@ -194,8 +194,8 @@ output$specificMissChance <- renderPlot({
   ungroup %>%
   group_by(Assignment, passed) %>%
   summarise(Skipped = sum(Mark == 0),
-    poor  = sum(Mark <= poor()),
-    failed = sum(Mark < pass()),
+    poor  = sum(Mark <= poor() & Mark > 0),
+    failed = sum(Mark < pass() & Mark > poor()),
     completed = sum(Mark >= pass())
     ) %>% 
   melt(id.vars=c("Assignment","passed"),value.name="num",variable.name="attempt") %>% 
@@ -212,16 +212,14 @@ output$specificMissChance <- renderPlot({
   ylab("Probability of passing the course")
 })
 
-
-
 firstMissData <- reactive({
   results %>% 
   group_by(ID) %>%
   summarise(
     passed = head(Final %in% passGrade,1),
     skipped = ifelse(any(Mark == 0), Assignment[min(which(Mark == 0))], as.integer(NA)),
-    poor    = ifelse(any(Mark <= poor()), Assignment[min(which(Mark <= poor() ))], as.integer(NA)),
-    failed  = ifelse(any(Mark < pass()), Assignment[min(which(Mark <  pass() ))], as.integer(NA)),
+    poor    = ifelse(any(Mark <= poor() & Mark > 0), Assignment[min(which(Mark <= poor() ))], as.integer(NA)),
+    failed  = ifelse(any(Mark < pass() & Mark > poor()), Assignment[min(which(Mark <  pass() ))], as.integer(NA)),
     completed  = ifelse(any(Mark >= pass()), Assignment[min(which(Mark >=  pass() ))], as.integer(NA))
     ) %>% 
   melt(id.vars=c("ID","passed"), value.name="assignment", variable.name="attempt") %>%
@@ -243,7 +241,7 @@ output$firstMissChance <- renderPlot({
   geom_text(aes(y=pPass-0.1),colour="black") + 
   facet_wrap(~attempt) + xlab("First assignment to be ...") +
   ylab("Probability of passing") 
-  
+
 })
 
 })
