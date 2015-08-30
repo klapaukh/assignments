@@ -1,8 +1,9 @@
 #Assignment Attempt Explorer
 
-This tool seeks to help people look at what assignment non-submission may say 
-about a students subsequent likelihood of passing a course. If you use this
-system in research please cite it.
+This tool seeks to help people look at what a student's attempt at their 
+assignments may say about that student's subsequent likelihood of passing 
+or getting a specific grade in a course. If you use this system in research
+please cite it.
 
 ## Invocation
 
@@ -14,7 +15,7 @@ uses shiny the webpage will only be visible while the script continues to run.
 
 The minimal invocation instruction is
 
-```
+```bash
 ./general.sh --input inputFile.csv
 ```
 
@@ -27,10 +28,25 @@ The input file must be a CSV file, with each row representing a single student.
 The first row in the file must be a header row. The following columns are
 expected:
    * ID - A unique identifier for each student
-   * Final - The students final mark in the course
-   * a1.. - A set of columns all with a fixed prefex ('a' by default) to
-     indicate a mark for each assignment. Each column has a number in it to
-     denote which assignmnet it is 
+   * Final - The students final mark in the course. Marks outside of the set 
+     {A+,A,A-,B+,B,B-,C+,C,C-,D,E} will be ignored. F is used in the output to 
+     represent a general fail grade (D or E).
+   * a1..aN - A set of columns all with a fixed prefix ('a' by default, but 
+     customised using the aregex argument) to indicate a mark for each 
+     assignment. Each column is numbered with the assignment number. It is 
+     assumed that assignments are all numbered. 
  
-All other columns are ignored (but may be present). 
+All other columns are ignored (but may be present).
 
+## Dependencies
+
+This script relies on having R installed, and Rscript being on the system PATH.
+You will require a browser with JavaScript enabled to view the results. 
+It uses the following R libraries:
+   * magrittr
+   * dplyr
+   * ggplot2
+   * reshape2
+   * data.table
+   * shiny
+   * argparser
