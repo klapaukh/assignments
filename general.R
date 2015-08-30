@@ -117,133 +117,133 @@ shinyApp(ui =        fluidPage(includeCSS("style.css"),
                    )))),
 server = function(input,output,session){
 
-        poor <- reactive({input$poorVal})
-        pass <- reactive({input$passVal})
+  poor <- reactive({input$poorVal})
+  pass <- reactive({input$passVal})
 
-assignmentCompletion <- reactive( {results %>%
-  group_by(Assignment) %>%
-  summarise(zeros = sum(Mark == 0),
-            poor  = sum(Mark <= poor()),
-            failed = sum(Mark < pass()),
-            completed = sum(Mark >= pass()),
-            total = n())
-                   })
+  assignmentCompletion <- reactive( {results %>%
+    group_by(Assignment) %>%
+    summarise(zeros = sum(Mark == 0),
+      poor  = sum(Mark <= poor()),
+      failed = sum(Mark < pass()),
+      completed = sum(Mark >= pass()),
+      total = n())
+  })
 
 
 
-           output$nAttempts <- renderPlot({
-              assignmentCompletion() %>%
-                melt(id.vars=c("Assignment","total"),
-                     variable.name="Result",value.name="NumStudents") %>%
-                ggplot(aes(Assignment,NumStudents,colour=Result,group=Result,shape=Result)) + geom_point() + 
-                geom_line() + ylab("Number of Students")
-           })
+  output$nAttempts <- renderPlot({
+    assignmentCompletion() %>%
+    melt(id.vars=c("Assignment","total"),
+     variable.name="Result",value.name="NumStudents") %>%
+    ggplot(aes(Assignment,NumStudents,colour=Result,group=Result,shape=Result)) + geom_point() + 
+    geom_line() + ylab("Number of Students")
+  })
 
-          output$nAssign <- renderPlot({
-            results %>% 
-              group_by(ID) %>% 
-              summarise(Skipped = sum(Mark == 0))%>%
-              ggplot(aes(x=factor(Skipped))) + geom_bar() + xlab("Number of assignments skipped") + ylab("Number of Students")
-          })
+  output$nAssign <- renderPlot({
+    results %>% 
+    group_by(ID) %>% 
+    summarise(Skipped = sum(Mark == 0))%>%
+    ggplot(aes(x=factor(Skipped))) + geom_bar() + xlab("Number of assignments skipped") + ylab("Number of Students")
+  })
 
-          output$percentAttempts <- renderText({
-            results %>% 
-              group_by(ID) %>% 
-              summarise(Skipped = sum(Mark == 0))%>%
-              group_by(Skipped) %>%
-              summarise(students = n()) %>% 
-              mutate(percent = 100 * students / sum(students)) %>%
-              filter(Skipped == 0) %>% 
-              extract2("percent") %>%
-              round(1)
-          })
+  output$percentAttempts <- renderText({
+    results %>% 
+    group_by(ID) %>% 
+    summarise(Skipped = sum(Mark == 0))%>%
+    group_by(Skipped) %>%
+    summarise(students = n()) %>% 
+    mutate(percent = 100 * students / sum(students)) %>%
+    filter(Skipped == 0) %>% 
+    extract2("percent") %>%
+    round(1)
+  })
 
-          output$attemptSummary <- renderDataTable({
-                 assignmentCompletion() %>% select(-total)
-          })
+  output$attemptSummary <- renderDataTable({
+   assignmentCompletion() %>% select(-total)
+ })
 
-          output$missedAss <- renderPlot({
-results %>% 
-  group_by(ID) %>%
-   summarise(Skipped = sum(Mark == 0),
-            poor  = sum(Mark <= poor()),
-            failed = sum(Mark < pass()),
-            completed = sum(Mark >= pass()),
-            passed = unique(Final %in% passGrade))%>%
-   melt(id.vars=c("ID","passed"),value.name="num",variable.name="attempt") %>% 
-   group_by(attempt,num) %>%
-   summarise(total = n(),
-             nPassed = sum(passed == T),
-             nFailed = sum(passed == F)) %>%
-   rowwise() %>%
-   mutate(
-           bestimate   = binom.test(nPassed, total,conf.level=0.8) %>% extract2("estimate"),
-           bconfLower  = binom.test(nPassed, total,conf.level=0.8) %>% extract2("conf.int") %>% head(1),
-           bconfUpper  = binom.test(nPassed, total,conf.level=0.8) %>% extract2("conf.int") %>% as.numeric %>% last) %>%
-  ggplot(aes(x=num,y=bestimate,colour=attempt,fill=attempt,ymin=bconfLower,ymax=bconfUpper,label=total)) + 
-  geom_point() + geom_line() + geom_ribbon(alpha=0.5) + geom_text(aes(y=bestimate - 0.1),color="black") +
-  scale_x_continuous(breaks=0:10) + xlab("Number of Assignments") +
-  ylab("Probability of passing") + facet_wrap(~attempt)
-          })
-           
+  output$missedAss <- renderPlot({
+    results %>% 
+    group_by(ID) %>%
+    summarise(Skipped = sum(Mark == 0),
+      poor  = sum(Mark <= poor()),
+      failed = sum(Mark < pass()),
+      completed = sum(Mark >= pass()),
+      passed = unique(Final %in% passGrade))%>%
+    melt(id.vars=c("ID","passed"),value.name="num",variable.name="attempt") %>% 
+    group_by(attempt,num) %>%
+    summarise(total = n(),
+     nPassed = sum(passed == T),
+     nFailed = sum(passed == F)) %>%
+    rowwise() %>%
+    mutate(
+     bestimate   = binom.test(nPassed, total,conf.level=0.8) %>% extract2("estimate"),
+     bconfLower  = binom.test(nPassed, total,conf.level=0.8) %>% extract2("conf.int") %>% head(1),
+     bconfUpper  = binom.test(nPassed, total,conf.level=0.8) %>% extract2("conf.int") %>% as.numeric %>% last) %>%
+    ggplot(aes(x=num,y=bestimate,colour=attempt,fill=attempt,ymin=bconfLower,ymax=bconfUpper,label=total)) + 
+    geom_point() + geom_line() + geom_ribbon(alpha=0.5) + geom_text(aes(y=bestimate - 0.1),color="black") +
+    scale_x_continuous(breaks=0:10) + xlab("Number of Assignments") +
+    ylab("Probability of passing") + facet_wrap(~attempt)
+  })
 
-                output$specificMissChance <- renderPlot({
-results %>% 
- rowwise() %>%
- mutate(passed = Final %in% passGrade) %>% 
- ungroup %>%
+
+output$specificMissChance <- renderPlot({
+  results %>% 
+  rowwise() %>%
+  mutate(passed = Final %in% passGrade) %>% 
+  ungroup %>%
   group_by(Assignment, passed) %>%
-   summarise(Skipped = sum(Mark == 0),
-            poor  = sum(Mark <= poor()),
-            failed = sum(Mark < pass()),
-            completed = sum(Mark >= pass())
-            ) %>% 
-   melt(id.vars=c("Assignment","passed"),value.name="num",variable.name="attempt") %>% 
-   group_by(Assignment,attempt) %>% 
-   summarise( total = sum(num),
-              nPassed = sum(num[passed==TRUE]),
-              nFailed = sum(num[passed==F])
-              ) %>%
-   ungroup %>%
-   mutate( pPass = nPassed / total) %>%
-   ggplot(aes(Assignment,pPass,colour=attempt,group=attempt,label=total)) + 
-   geom_point() + geom_line() + geom_text(aes(y=pPass-0.1),colour="black") + 
-   facet_wrap(~attempt) + xlab("Attempt at specific assignment") + 
-   ylab("Probability of passing the course")
-                })
+  summarise(Skipped = sum(Mark == 0),
+    poor  = sum(Mark <= poor()),
+    failed = sum(Mark < pass()),
+    completed = sum(Mark >= pass())
+    ) %>% 
+  melt(id.vars=c("Assignment","passed"),value.name="num",variable.name="attempt") %>% 
+  group_by(Assignment,attempt) %>% 
+  summarise( total = sum(num),
+    nPassed = sum(num[passed==TRUE]),
+    nFailed = sum(num[passed==F])
+    ) %>%
+  ungroup %>%
+  mutate( pPass = nPassed / total) %>%
+  ggplot(aes(Assignment,pPass,colour=attempt,group=attempt,label=total)) + 
+  geom_point() + geom_line() + geom_text(aes(y=pPass-0.1),colour="black") + 
+  facet_wrap(~attempt) + xlab("Attempt at specific assignment") + 
+  ylab("Probability of passing the course")
+})
 
 
 
-          firstMissData <- reactive({
-          results %>% 
-                group_by(ID) %>%
-                  summarise(
-                            passed = head(Final %in% passGrade,1),
-                            skipped = ifelse(any(Mark == 0), Assignment[min(which(Mark == 0))], as.integer(NA)),
-                            poor    = ifelse(any(Mark <= poor()), Assignment[min(which(Mark <= poor() ))], as.integer(NA)),
-                            failed  = ifelse(any(Mark < pass()), Assignment[min(which(Mark <  pass() ))], as.integer(NA)),
-                            completed  = ifelse(any(Mark >= pass()), Assignment[min(which(Mark >=  pass() ))], as.integer(NA))
-                            ) %>% 
-                melt(id.vars=c("ID","passed"), value.name="assignment", variable.name="attempt") %>%
-                filter(!is.na(assignment)) %>%
-                group_by(attempt,assignment) %>%
-                summarise(
-                          total = n(),
-                          nPassed = sum(passed==T)
-                          ) %>%
-                mutate(pPass = nPassed / total,
-                       assignmentNum = gsub("[^0-9]*","",assignment) %>% as.integer)  
+firstMissData <- reactive({
+  results %>% 
+  group_by(ID) %>%
+  summarise(
+    passed = head(Final %in% passGrade,1),
+    skipped = ifelse(any(Mark == 0), Assignment[min(which(Mark == 0))], as.integer(NA)),
+    poor    = ifelse(any(Mark <= poor()), Assignment[min(which(Mark <= poor() ))], as.integer(NA)),
+    failed  = ifelse(any(Mark < pass()), Assignment[min(which(Mark <  pass() ))], as.integer(NA)),
+    completed  = ifelse(any(Mark >= pass()), Assignment[min(which(Mark >=  pass() ))], as.integer(NA))
+    ) %>% 
+  melt(id.vars=c("ID","passed"), value.name="assignment", variable.name="attempt") %>%
+  filter(!is.na(assignment)) %>%
+  group_by(attempt,assignment) %>%
+  summarise(
+    total = n(),
+    nPassed = sum(passed==T)
+    ) %>%
+  mutate(pPass = nPassed / total,
+   assignmentNum = gsub("[^0-9]*","",assignment) %>% as.integer)  
 
-          })
+})
 
-        output$firstMissChance <- renderPlot({
-                ggplot(firstMissData(), 
-                       aes(x=factor(assignment),y=pPass,colour=attempt,label=total,group=attempt)) + 
-                        geom_point() + geom_line() + 
-                        geom_text(aes(y=pPass-0.1),colour="black") + 
-                        facet_wrap(~attempt) + xlab("First assignment to be ...") +
-                        ylab("Probability of passing") 
-                        
-                })
+output$firstMissChance <- renderPlot({
+  ggplot(firstMissData(), 
+   aes(x=factor(assignment),y=pPass,colour=attempt,label=total,group=attempt)) + 
+  geom_point() + geom_line() + 
+  geom_text(aes(y=pPass-0.1),colour="black") + 
+  facet_wrap(~attempt) + xlab("First assignment to be ...") +
+  ylab("Probability of passing") 
+  
+})
 
-            })
+})
