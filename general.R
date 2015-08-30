@@ -50,7 +50,11 @@ if(is.null(results)){
 }
 
 #Remove any unusual grades
-passGrade = c("A+","A","A-","B+","B","B-","C+","C","C-")
+a = c("A+","A","A-")
+b = c("B+","B","B-")
+c = c("C+","C","C-")
+
+passGrade = c(a,b,c)
 failGrade = c("D","E")
 results %<>% filter(Final %in% c(passGrade,failGrade))
 
@@ -105,7 +109,9 @@ shinyApp(ui =        fluidPage(includeCSS("style.css"),
                    tabPanel("Total Attempt Effect",
                         h2("Group assignment effects"),
                         p("Your chance of passing based on number of assignment submitted"),
-                        plotOutput("missedAss")
+                        plotOutput("missedAss"),
+                        p("Student performance on assignments by final grade"),
+                        plotOutput("missedAssByGrade")
                            ),
                    tabPanel("Individual Assignment Effect",
                             h2("Specific assignment effects"),
@@ -186,6 +192,24 @@ server = function(input,output,session){
     ylab("Probability of passing") + facet_wrap(~attempt)
   })
 
+output$missedAssByGrade <- renderPlot({
+    results %>% 
+    group_by(ID) %>%
+    summarise(Skipped = sum(Mark == 0),
+      poor  = sum(Mark <= poor() & Mark > 0),
+      failed = sum(Mark < pass() & Mark > poor()),
+      completed = sum(Mark >= pass()),
+      final = unique(as.character(Final))) %>%
+    mutate(final = gsub(pattern = "[+-]",replacement="",final))%>%
+    mutate(final = gsub(pattern = "[DE]",replacement="F",final))%>%
+    melt(id.vars=c("ID","final"),value.name="numAss",variable.name="attempt") %>% 
+    group_by(final,attempt,numAss) %>%
+    summarise(numStudents = n()) %>%
+    ggplot(aes(x=numAss,y=numStudents,colour=final,shape=final)) + 
+    geom_point() + geom_line() +
+    scale_x_continuous(breaks=0:10) + xlab("Number of Assignments") +
+    ylab("Number of Students") + facet_grid(final~attempt)
+  })
 
 output$specificMissChance <- renderPlot({
   results %>% 
