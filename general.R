@@ -58,6 +58,12 @@ passGrade = c(a,b,c)
 failGrade = c("D","E")
 results %<>% filter(Final %in% c(passGrade,failGrade))
 
+toPlainGrade <- function(grade){
+  gsub("[+-]","",grade) %>%
+  gsub(x=.,"[DE]","F") %>%
+  return  
+}
+
 
 #Melt the assignments, and make any NAs 0 (for consistency between courses and
 #data sets)
@@ -199,9 +205,7 @@ output$missedAssByGrade <- renderPlot({
       poor  = sum(Mark <= poor() & Mark > 0),
       failed = sum(Mark < pass() & Mark > poor()),
       completed = sum(Mark >= pass()),
-      final = unique(as.character(Final))) %>%
-    mutate(final = gsub(pattern = "[+-]",replacement="",final))%>%
-    mutate(final = gsub(pattern = "[DE]",replacement="F",final))%>%
+      final = unique(toPlainGrade(as.character(Final)))) %>%
     melt(id.vars=c("ID","final"),value.name="numAss",variable.name="attempt") %>% 
     group_by(final,attempt,numAss) %>%
     summarise(numStudents = n()) %>%
